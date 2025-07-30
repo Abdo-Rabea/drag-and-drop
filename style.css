@@ -50,7 +50,7 @@ ul {
 
 /* Columns */
 .drag-column {
-
+  flex-grow: 1;
   margin: 0 10px;
   position: relative;
   background-color: rgba(0, 0, 0, 0.4);
@@ -89,7 +89,8 @@ ul {
 /* Custom Scrollbar */
 .custom-scroll {
   overflow-y: auto;
-  max-height: 75vh;
+  min-height: 100px;
+  max-height: calc(100vh - 450px);
 }
 
 .custom-scroll::-webkit-scrollbar-track {
@@ -174,7 +175,7 @@ ul {
 }
 
 .solid {
-  display: none;
+  /* display: none; */
 }
 
 .solid:hover {
@@ -196,7 +197,7 @@ ul {
   border-radius: 10px;
   background-color: rgba(255, 255, 255, 0.9);
   min-height: 100px;
-  display: none;
+  /* display: none; */
 }
 
 .add-item {
