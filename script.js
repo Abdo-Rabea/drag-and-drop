@@ -10,7 +10,7 @@ const completeList = document.getElementById("complete-list");
 const onHoldList = document.getElementById("on-hold-list");
 
 // Items
-
+let transferElement = null;
 // Initialize Arrays
 let backlogListArray = [];
 let progressListArray = [];
@@ -64,7 +64,23 @@ function updateSavedColumns() {
 function createItemEl(itemText) {
   const item = document.createElement("li");
   item.classList.add("drag-item");
+  item.setAttribute("draggable", "true");
   item.textContent = itemText;
+
+  item.addEventListener("dragstart", (ev) => {
+    // ev.dataTransfer.setData("object", ev.target);
+    transferElement = item;
+    setTimeout(() => (item.style.display = "none"), 0);
+  });
+  item.addEventListener("dragend", (ev) => {
+    // ev.dataTransfer.setData("object", ev.target);
+    setTimeout(() => {
+      item.style.display = "block";
+      transferElement = null;
+    }, 0);
+  });
+
+  // item.addEventListener("drop", (ev) => {});
   return item;
 }
 
@@ -98,6 +114,37 @@ function initiateBoard() {
   // update dom
   updateDOM();
 }
+
+// Event Listeners
+// allow to drop over other elements
+itemLists.forEach((itemList) => {
+  let dragCounter = 0;
+
+  itemList.addEventListener("dragenter", (e) => {
+    dragCounter++;
+    console.log("enter", dragCounter, e.target, e.currentTarget);
+    itemList.classList.add("over");
+  });
+
+  itemList.addEventListener("dragleave", (e) => {
+    dragCounter--;
+    console.log("leave", dragCounter, e.target, e.currentTarget);
+    if (dragCounter === 0) {
+      itemList.classList.remove("over");
+    }
+  });
+
+  itemList.addEventListener("dragover", (ev) => {
+    ev.preventDefault(); // Required to allow dropping
+  });
+
+  itemList.addEventListener("drop", function (ev) {
+    ev.preventDefault();
+    dragCounter = 0;
+    this.classList.remove("over");
+    this.appendChild(transferElement);
+  });
+});
 
 // onload
 initiateBoard();
