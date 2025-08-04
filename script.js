@@ -11,6 +11,8 @@ const onHoldList = document.getElementById("on-hold-list");
 
 // Items
 let transferElement = null;
+let sourceList = null;
+
 // Initialize Arrays
 let backlogListArray = [];
 let progressListArray = [];
@@ -18,6 +20,28 @@ let completeListArray = [];
 let onHoldListArray = [];
 let listArrays = [];
 // Drag Functionality
+
+// helper functions
+
+/**
+ * inplace removing of item from array
+ * @param {Array} arr
+ */
+function removeItemFromArray(arr, itemText) {
+  const index = arr.indexOf(itemText);
+  if (index !== -1) arr.splice(index, 1);
+}
+
+/**
+ * moves item from source array to destination array
+ * @param {Array} list1
+ * @param {Array} list2
+ * @param {String} itemText
+ */
+function moveItemFromToList(s, d, itemText) {
+  removeItemFromArray(s, itemText);
+  d.push(itemText);
+}
 
 // Get Arrays from localStorage if available, set default values if not
 function getSavedColumns() {
@@ -61,34 +85,128 @@ function updateSavedColumns() {
 //   listEl.classList.add("drag-item");
 // }
 
-function createItemEl(itemText) {
+function createItemEl(itemText, list) {
+  const itemContainer = document.createElement("div");
+  itemContainer.style.position = "relative";
+
   const item = document.createElement("li");
   item.classList.add("drag-item");
   item.setAttribute("draggable", "true");
   item.textContent = itemText;
+  item.contentEditable = "true";
 
-  item.addEventListener("dragstart", (ev) => {
+  const dbtn = document.createElement("span");
+  dbtn.classList.add("delete-item");
+  dbtn.innerHTML = "&#10005;";
+
+  // item.appendChild(dbtn);
+  itemContainer.append(item, dbtn);
+  itemContainer.addEventListener("dragstart", (ev) => {
     // ev.dataTransfer.setData("object", ev.target);
     transferElement = item;
-    setTimeout(() => (item.style.display = "none"), 0);
+    sourceList = list;
+
+    setTimeout(() => {
+      itemContainer.style.display = "none";
+    }, 0);
   });
-  item.addEventListener("dragend", (ev) => {
+  itemContainer.addEventListener("dragend", (ev) => {
     // ev.dataTransfer.setData("object", ev.target);
     setTimeout(() => {
-      item.style.display = "block";
+      itemContainer.style.display = "block";
       transferElement = null;
+      sourceList = null;
     }, 0);
   });
 
-  // item.addEventListener("drop", (ev) => {});
-  return item;
+  // delete functionality
+  dbtn.addEventListener("click", function () {
+    removeItemFromArray(list, itemText);
+    itemContainer.remove();
+    updateSavedColumns();
+  });
+
+  // update item functionalities
+  item.addEventListener("focusout", function () {
+    const newText = item.textContent;
+    const lastText = itemText;
+    if (newText === lastText) return;
+
+    if (!newText) {
+      // remove it
+      removeItemFromArray(list, lastText);
+      itemContainer.remove();
+    } else {
+      // update list aka. replace lastText with newText
+      const index = list.indexOf(lastText);
+      if (index !== -1) {
+        list[index] = newText;
+      }
+    }
+
+    //! wow: i can update the closure variable
+    itemText = newText;
+
+    updateSavedColumns();
+  });
+  return itemContainer;
 }
 
 function populateDomList(listEl, listarray) {
   listEl.textContent = "";
-  listarray.forEach((itemText) => {
-    listEl.appendChild(createItemEl(itemText));
+  listarray.forEach((itemText, _, list) => {
+    listEl.appendChild(createItemEl(itemText, list));
   });
+}
+
+// showInputBox
+function showInputBox(column) {
+  // hide the add Item button
+  addBtns[column].style.visibility = "hidden";
+
+  // show save item button
+  saveItemBtns[column].style.display = "flex";
+
+  // show the container
+  addItemContainers[column].style.display = "flex";
+
+  // focus addItem div
+  addItems[column].focus();
+}
+function hideInputBox(column) {
+  // show the add Item button
+  addBtns[column].style.visibility = "visible";
+
+  // hide save item button
+  saveItemBtns[column].style.display = "none";
+
+  // hide the container
+  addItemContainers[column].style.display = "none";
+}
+
+function saveNewItem(column) {
+  const itemText = addItems[column].textContent;
+  if (itemText) {
+    // updating state
+    listArrays = [
+      backlogListArray,
+      progressListArray,
+      completeListArray,
+      onHoldListArray,
+    ];
+    listArrays[column].push(itemText);
+
+    // updating dom
+    itemLists[column].appendChild(createItemEl(itemText, listArrays[column]));
+
+    // update local storage
+    updateSavedColumns();
+  }
+
+  addItems[column].textContent = "";
+
+  // hide add item stuff
+  hideInputBox(column);
 }
 
 // Update Columns in DOM - Reset HTML, Filter Array, Update localStorage
@@ -116,19 +234,25 @@ function initiateBoard() {
 }
 
 // Event Listeners
+// function handleDragStart(item, list) {
+//   // ev.dataTransfer.setData("object", ev.target);
+//   transferElement = item;
+//   sourceList = list;
+//   setTimeout(() => (item.style.display = "none"), 0);
+// }
+// function handleDragEnd(item, list) {}
+
 // allow to drop over other elements
 itemLists.forEach((itemList) => {
   let dragCounter = 0;
 
   itemList.addEventListener("dragenter", (e) => {
     dragCounter++;
-    console.log("enter", dragCounter, e.target, e.currentTarget);
     itemList.classList.add("over");
   });
 
   itemList.addEventListener("dragleave", (e) => {
     dragCounter--;
-    console.log("leave", dragCounter, e.target, e.currentTarget);
     if (dragCounter === 0) {
       itemList.classList.remove("over");
     }
@@ -142,7 +266,40 @@ itemLists.forEach((itemList) => {
     ev.preventDefault();
     dragCounter = 0;
     this.classList.remove("over");
-    this.appendChild(transferElement);
+
+    // destination list : aka this itemList -> list
+    listArrays = [
+      backlogListArray,
+      progressListArray,
+      completeListArray,
+      onHoldListArray,
+    ];
+    let index = 0,
+      destinationList = null;
+    for (let currentList of itemLists) {
+      if (currentList === this) {
+        destinationList = listArrays[index];
+        break;
+      }
+      index++;
+    }
+
+    // move child in the dom
+    if (sourceList && destinationList && sourceList !== destinationList) {
+      // update dom
+      this.appendChild(
+        createItemEl(transferElement.textContent, destinationList)
+      );
+      // update arrays
+      moveItemFromToList(
+        sourceList,
+        destinationList,
+        transferElement.textContent
+      );
+      transferElement.remove();
+      // update local storage
+      updateSavedColumns();
+    }
   });
 });
 
